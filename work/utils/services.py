@@ -22,44 +22,14 @@ class CsvGeneratorService:
             calendar_events = self.CLIENT.get_calendar_events(calendar_name)
             gc_table = GoogleCalendarTable().events_to_table(calendar_events)
             df = pd.DataFrame(gc_table.__dict__)
-            today = str(datetime.now().date())
-            file_name = f"{self.DATA_PATH}{today}_{calendar_name}.csv"
-            df.to_csv(f"{file_name}", index=False)
-            print(f"The CSV was saved under the name: {file_name}")
+            self._save_file(df, 'crud', calendar_name)
     
     def get_available_files_names(self):
+        """Get the names of the files saved."""
         files = [file for file in listdir(self.DATA_PATH) if PurePosixPath(file).suffix == '.csv']
         print("Your available files are:")
         for file in files:
             print(f"  - '{file}'")
-            
-    def issues_duration_by_month(self, file_name: str):
-        df_base = self._file_to_data_frame(file_name)
-        df_base.index = df_base["start_date"]
-        df_base = df_base.groupby(pd.Grouper(freq='M'))
-        
-        series_issue = df_base['issue'].nunique()
-        series_event_duration = df_base['event_duration_seconds'].sum()
-        series_event_duration = series_event_duration.apply(self._total_seconds_to_hours)
-        
-        df_issues_duration_by_month = pd.concat(
-            [series_issue, series_event_duration], 
-            axis=1
-        )
-        df_issues_duration_by_month.rename(
-            columns=dict(
-                issue='total_issues',
-                event_duration_seconds='total_hours'
-            ),
-            inplace=True
-        )
-        df_issues_duration_by_month.reset_index(
-            level=None, 
-            drop=False, 
-            inplace=True,
-        )
-        
-        return df_issues_duration_by_month
     
     def _file_to_data_frame(self, file_name: str):
         """Read de csv file and optimize the data"""
@@ -79,6 +49,72 @@ class CsvGeneratorService:
         return df
     
     def _total_seconds_to_hours(self, total_seconds):
+        """Transform the total_secods to hours and minutes"""
         hours = int(total_seconds//3600)
         minutes = int((total_seconds%3600) // 60)
-        return f"{hours}:{minutes}"
+        return f"{hours:02}:{minutes:02}"
+    
+    def _save_file(self, df, prefix, calendar_name):
+        today = str(datetime.now().date())
+        file_name = f"{prefix}_{today}_{calendar_name}.csv"
+        df.to_csv(f"{self.DATA_PATH}{file_name}", index=False)
+        print(f"The CSV was saved under the name: {file_name}")
+
+
+class CsvByMonthService(CsvGeneratorService):
+    
+    def issues_and_total_hours_by_month(self, file_name: str):
+        """Issues & total hours by month
+        
+        To improve:
+          - add hours average by issue
+        """
+        df_base = self._file_to_data_frame(file_name)
+        calendar_name = df_base["calendar"].iloc[0]
+        df_issues_duration_by_month = self._issues_and_total_hours_by_month_df(df_base)
+        
+        self._save_file(df_issues_duration_by_month, 'by_month_and_total_hours', calendar_name)
+    
+    
+    def issues_and_total_hours_by_repository_and_month(self, file_name: str):
+        df_base = self._file_to_data_frame(file_name)
+        calendar_name = df_base["calendar"].iloc[0]
+        repositories = df_base['repository'].cat.categories
+        df_final = pd.DataFrame()
+
+        for repo in repositories:
+            df_temp = df_base[df_base['repository'] == repo]
+            df_temp = self._issues_and_total_hours_by_month_df(df_temp)
+            df_temp['repository'] = repo
+            df_final = df_final.append(df_temp, ignore_index=True)
+        df_final.sort_values(by=['start_date', 'repository'], ascending=False, inplace=True)
+        
+        self._save_file(df_final, 'by_month_and_total_hours_by_repo_and_month', calendar_name)
+
+    def _issues_and_total_hours_by_month_df(self, df_base):
+        df_base.index = df_base["start_date"]
+        df_base = df_base.groupby(pd.Grouper(freq='M'))
+
+        series_issue = df_base["issue"].nunique()
+        series_event_duration = df_base["event_duration_seconds"].sum()
+        series_event_duration = series_event_duration.apply(self._total_seconds_to_hours)
+
+        df_issues_and_duration_by_month = pd.concat(
+                [series_issue, series_event_duration], 
+                axis=1
+            )
+        df_issues_and_duration_by_month.rename(
+                columns=dict(
+                    issue="total_issues",
+                    event_duration_seconds="total_hours"
+                ),
+                inplace=True
+            )
+        df_issues_and_duration_by_month.reset_index(
+                level=None, 
+                drop=False, 
+                inplace=True,
+            )
+        return df_issues_and_duration_by_month
+
+    

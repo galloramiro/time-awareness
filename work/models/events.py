@@ -11,12 +11,12 @@ class Event:
     Manage to transform string to dates and calculate event duration in seconds.
     """
     
-    def __init__(self, calendar:str, sumary:str, start_date: str, end_date: str, creator:str):
+    def __init__(self, calendar:str, summary:str, start_date: str, end_date: str, creator:str):
         _start_date = self._string_to_date_time(start_date)
         _end_date = self._string_to_date_time(end_date)
         
         self.calendar = calendar
-        self.sumary = sumary
+        self.summary = summary
         self.start_date = _start_date.date()
         self.end_date = _end_date.date()
         self.start_time = _start_date.time()
@@ -32,7 +32,7 @@ class Event:
         return event_duration.total_seconds()
         
     def __str__(self):
-        return f"{self.calendar} - {self.sumary} - {self.start_date}"
+        return f"{self.calendar} - {self.summary} - {self.start_date}"
     
     def __repr__(self):
-        return f"{self.calendar} - {self.sumary} - {self.start_date}"
+        return f"{self.calendar} - {self.summary} - {self.start_date}"

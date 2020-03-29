@@ -131,3 +131,6 @@ dmypy.json
 # Credentiasl
 work/credentials.json
 work/token.pickle
+
+# Personal Data folder
+work/data/

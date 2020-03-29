@@ -23,27 +23,23 @@ class GoogleCalendarClient():
         self.SERVICE = build('calendar', 'v3', credentials=credentials)
         self.CALENDARS = self._get_calendars()
     
-    def get_calendar_events(self, calendars_names: list):
+    def get_calendar_events(self, calendar_name: str):
         """Get calendar events.
         
         List of Event with the information that you need to make analisis.
         This function acept on
         """
-        calendars_events = []
-        for name in calendars_names:
-            calendar = self._get_calendar_by_name(name)
-            crud_events = self.SERVICE.events().list(
-                calendarId=calendar.id, 
-                orderBy='startTime',
-                singleEvents=True,
-            ).execute()
-            events = self._get_cleaned_events(crud_events['items'], name)
-            calendars_events.append({name:events})
-        if len(calendars_events) == 1:
-            return events
-        return calendars_events
+        
+        calendar = self._get_calendar_by_name(calendar_name)
+        crud_events = self.SERVICE.events().list(
+            calendarId=calendar.id, 
+            orderBy='startTime',
+            singleEvents=True,
+        ).execute()
+        events = self._get_cleaned_events(crud_events['items'], calendar_name)
+        return events
     
-    def _get_cleaned_events(self, crud_events: list, name: str):
+    def _get_cleaned_events(self, crud_events: list, calendar_name: str):
         """Celaned events
         
         Get the raw events from the calendar and transform into a class with the 
@@ -53,8 +49,8 @@ class GoogleCalendarClient():
         for event in crud_events:
             events.append(
                 Event(
-                    calendar=name,
-                    sumary=event['summary'],
+                    calendar=calendar_name,
+                    summary=event['summary'],
                     start_date=event['start']['dateTime'],
                     end_date=event['end']['dateTime'],
                     creator=event['creator']['email'],
